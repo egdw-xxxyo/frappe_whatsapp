@@ -192,7 +192,7 @@ def post():
 					"whatsapp_account": whatsapp_account.name,
 					"product_catalog_json": json.dumps(order_data)
 				}).insert(ignore_permissions=True)
-			elif message_type in ["image", "audio", "video", "document"]:
+			elif message_type in ["image", "audio", "video", "document", "sticker"]:
 				token = whatsapp_account.get_password("token")
 				url = f"{whatsapp_account.url}/{whatsapp_account.version}/"
 
