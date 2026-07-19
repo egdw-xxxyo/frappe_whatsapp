@@ -350,6 +350,7 @@ class WhatsAppMessage(Document):
             "authorization": f"Bearer {token}",
             "content-type": "application/json",
         }
+        frappe.log_error(title="wa_meta_payload", message=json.dumps(data))
         try:
             response = make_post_request(
                 f"{whatsapp_account.url}/{whatsapp_account.version}/{whatsapp_account.phone_id}/messages",
