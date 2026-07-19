@@ -295,13 +295,29 @@ def update_template_status(data):
 
 def update_message_status(data):
 	"""Update message status."""
-	id = data['statuses'][0]['id']
-	status = data['statuses'][0]['status']
-	conversation = data['statuses'][0].get('conversation', {}).get('id')
+	status_obj = data['statuses'][0]
+	id = status_obj['id']
+	status = status_obj['status']
+	conversation = status_obj.get('conversation', {}).get('id')
 	name = frappe.db.get_value("WhatsApp Message", filters={"message_id": id})
 
 	doc = frappe.get_doc("WhatsApp Message", name)
 	doc.status = status
 	if conversation:
 		doc.conversation_id = conversation
+	# Capture the failure reason (e.g. 131047 "Re-engagement message") into the
+	# status_error custom field so clients can show why a send failed; clear it on
+	# any non-failed status. Guarded so it is a no-op if the field is absent.
+	if doc.meta.has_field("status_error"):
+		if status == "failed":
+			errors = status_obj.get("errors") or []
+			if errors:
+				err = errors[0]
+				detail = (err.get("error_data") or {}).get("details") or err.get("title") or err.get("message")
+				code = err.get("code")
+				doc.status_error = f"[{code}] {detail}" if code else detail
+			else:
+				doc.status_error = _("Message failed")
+		else:
+			doc.status_error = None
 	doc.save(ignore_permissions=True)
