@@ -417,6 +417,12 @@ class WhatsAppMessage(Document):
 
 def on_doctype_update():
     frappe.db.add_index("WhatsApp Message", ["reference_doctype", "reference_name"])
+    # Conversation views filter by counterpart number and page by creation; without
+    # these the chat pages full-scan the table and filesort on every load.
+    # `from`/`to` are SQL reserved words, so they must be quoted -- add_index joins
+    # the field list verbatim and needs an explicit index name in that case.
+    frappe.db.add_index("WhatsApp Message", ["`from`", "creation"], "from_creation_index")
+    frappe.db.add_index("WhatsApp Message", ["`to`", "creation"], "to_creation_index")
 
 
 @frappe.whitelist()
