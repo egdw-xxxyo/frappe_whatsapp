@@ -86,10 +86,11 @@ class WhatsAppMessage(Document):
             if self.is_reply and self.reply_to_message_id:
                 data["context"] = {"message_id": self.reply_to_message_id}
             if self.content_type in ["document", "image", "video"]:
-                data[self.content_type.lower()] = {
-                    "link": link,
-                    "caption": self.message,
-                }
+                media = self.media_object(link)
+                media["caption"] = self.message
+                if self.content_type == "document" and "id" in media:
+                    media["filename"] = self.attach.rsplit("/", 1)[-1]
+                data[self.content_type.lower()] = media
             elif self.content_type == "reaction":
                 data["reaction"] = {
                     "message_id": self.reply_to_message_id,
@@ -99,7 +100,7 @@ class WhatsAppMessage(Document):
                 data["text"] = {"preview_url": True, "body": self.message}
 
             elif self.content_type == "audio":
-                data["audio"] = {"link": link}
+                data["audio"] = self.media_object(link)
 
             elif self.content_type == "interactive":
                 # Interactive message (buttons or list)
@@ -337,6 +338,70 @@ class WhatsAppMessage(Document):
                 data['template']['components'].extend(button_parameters)
 
         self.notify(data)
+
+    def media_object(self, link):
+        """Media payload for an outgoing attachment.
+
+        A file stored on this site is uploaded to Meta and sent by id: Meta cannot download
+        our /files URLs when the site runs on a private network (it rejects them with
+        "(#100) Param image.link is not a valid URI"), and private files are never public
+        anyway. Only a link to some other host is passed through as a link."""
+        site = frappe.utils.get_url()
+        if self.attach.startswith("http") and not self.attach.startswith(site):
+            return {"link": link}
+        return {"id": self.upload_media()}
+
+    def upload_media(self):
+        """Upload the attached File to Meta's media endpoint and return the media id."""
+        import mimetypes
+
+        import requests
+
+        file_url = self.attach
+        site = frappe.utils.get_url()
+        if file_url.startswith(site):
+            file_url = file_url[len(site):]
+        file_url = "/" + file_url.lstrip("/")
+
+        file_name = frappe.db.get_value("File", {"file_url": file_url}, "name")
+        if not file_name:
+            frappe.throw(_("Attachment {0} not found").format(file_url))
+        file_doc = frappe.get_doc("File", file_name)
+        content = file_doc.get_content()
+        if isinstance(content, str):
+            content = content.encode()
+        base_name = file_doc.file_name or file_url.rsplit("/", 1)[-1]
+        mime = mimetypes.guess_type(base_name)[0] or "application/octet-stream"
+        if mime == "audio/ogg" or base_name.endswith(".opus"):
+            mime = "audio/ogg"
+
+        account = frappe.get_doc("WhatsApp Account", self.whatsapp_account)
+        token = account.get_password("token")
+        response = requests.post(
+            f"{account.url}/{account.version}/{account.phone_id}/media",
+            headers={"authorization": f"Bearer {token}"},
+            data={"messaging_product": "whatsapp", "type": mime},
+            files={"file": (base_name, content, mime)},
+            timeout=120,
+        )
+        try:
+            body = response.json()
+        except ValueError:
+            body = {}
+        if not response.ok or not body.get("id"):
+            error = body.get("error", {}) if isinstance(body, dict) else {}
+            frappe.get_doc(
+                {
+                    "doctype": "WhatsApp Notification Log",
+                    "template": "Media Upload",
+                    "meta_data": body or {"raw": response.text[:2000]},
+                }
+            ).insert(ignore_permissions=True)
+            frappe.throw(
+                msg=error.get("message") or _("Could not upload the file to WhatsApp"),
+                title=error.get("error_user_title", _("Error")),
+            )
+        return body["id"]
 
     def notify(self, data):
         """Notify."""
