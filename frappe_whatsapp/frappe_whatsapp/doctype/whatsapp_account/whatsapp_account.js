@@ -27,6 +27,53 @@ frappe.ui.form.on("WhatsApp Account", {
 					}
 				);
 			});
+
+			frm.add_custom_button(__("Register Phone Number"), () => {
+				if (frm.is_dirty()) {
+					frappe.msgprint(__("Save the document before registering the phone number"));
+					return;
+				}
+				frappe.confirm(
+					__("Register phone number {0} with the WhatsApp Cloud API using the stored PIN?", [
+						frm.doc.phone_id,
+					]),
+					() => {
+						frm.call({
+							doc: frm.doc,
+							method: "register_phone",
+							freeze: true,
+							freeze_message: __("Registering phone number..."),
+							callback: (r) => {
+								if (!r.exc) {
+									frappe.show_alert({
+										message: __("Phone number registered"),
+										indicator: "green",
+									});
+								}
+							},
+						});
+					}
+				);
+			});
+
+			if (frm.doc.two_step_pin) {
+				frm.add_custom_button(__("Show PIN"), () => {
+					frm.call({
+						doc: frm.doc,
+						method: "reveal_two_step_pin",
+						callback: (r) => {
+							if (!r.exc) {
+								frappe.msgprint({
+									title: __("Two-Step Verification PIN"),
+									message: `<b style="font-size: 1.5em; letter-spacing: 0.2em">${frappe.utils.escape_html(
+										r.message || ""
+									)}</b>`,
+								});
+							}
+						},
+					});
+				});
+			}
 		}
 	},
 });

@@ -18,6 +18,7 @@
   "phone_id",
   "app_id",
   "business_id",
+  "two_step_pin",
   "is_default_incoming",
   "is_default_outgoing",
   "allow_auto_read_receipt"
@@ -50,6 +51,13 @@
    "fieldname": "business_id",
    "fieldtype": "Data",
    "label": "Business ID"
+  },
+  {
+   "description": "6-digit PIN set on the phone number when it is registered with the Cloud API. Needed to re-register the number.",
+   "fieldname": "two_step_pin",
+   "fieldtype": "Password",
+   "label": "Two-Step Verification PIN",
+   "length": 6
   },
   {
    "fieldname": "app_id",
@@ -105,7 +113,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-01 18:30:21.339317",
+ "modified": "2026-09-30 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "Frappe Whatsapp",
  "name": "WhatsApp Account",
