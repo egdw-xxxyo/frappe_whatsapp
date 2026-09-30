@@ -488,6 +488,14 @@ def on_doctype_update():
     # the field list verbatim and needs an explicit index name in that case.
     frappe.db.add_index("WhatsApp Message", ["`from`", "creation"], "from_creation_index")
     frappe.db.add_index("WhatsApp Message", ["`to`", "creation"], "to_creation_index")
+    # A chat is one customer on one business number, so conversation views also
+    # filter by the account the message went through.
+    frappe.db.add_index(
+        "WhatsApp Message", ["whatsapp_account", "`from`", "creation"], "account_from_creation_index"
+    )
+    frappe.db.add_index(
+        "WhatsApp Message", ["whatsapp_account", "`to`", "creation"], "account_to_creation_index"
+    )
 
 
 @frappe.whitelist()

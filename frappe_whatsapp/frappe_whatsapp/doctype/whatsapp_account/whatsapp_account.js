@@ -56,6 +56,17 @@ frappe.ui.form.on("WhatsApp Account", {
 				);
 			});
 
+			frm.add_custom_button(__("Fetch Number Info"), () => {
+				frm.call({
+					doc: frm.doc,
+					method: "fetch_number_info",
+					freeze: true,
+					callback: (r) => {
+						if (!r.exc) frm.reload_doc();
+					},
+				});
+			});
+
 			if (frm.doc.two_step_pin) {
 				frm.add_custom_button(__("Show PIN"), () => {
 					frm.call({

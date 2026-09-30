@@ -3,13 +3,15 @@
 
 import frappe
 from frappe import _
-from frappe.integrations.utils import make_post_request
+from frappe.integrations.utils import make_get_request, make_post_request
 from frappe.model.document import Document
 
 
 class WhatsAppAccount(Document):
 	def validate(self):
 		self.validate_two_step_pin()
+		if self.phone_id and (self.has_value_changed("phone_id") or not self.display_phone_number):
+			self.load_number_info(silent=True)
 
 	def validate_two_step_pin(self):
 		pin = self.two_step_pin
@@ -125,9 +127,37 @@ class WhatsAppAccount(Document):
 		if self.business_id:
 			self.subscribe_app()
 
+		self.load_number_info(silent=True)
+		self.db_set({"display_phone_number": self.display_phone_number, "verified_name": self.verified_name})
 		return response
 
 	@frappe.whitelist()
 	def reveal_two_step_pin(self):
 		frappe.only_for("System Manager")
 		return self.get_password("two_step_pin", raise_exception=False)
+
+	def load_number_info(self, silent=False):
+		"""Read the number's display form and verified business name from the Graph API."""
+		token = self.get_password("token", raise_exception=False)
+		if not (self.url and self.version and self.phone_id and token):
+			return
+		try:
+			info = make_get_request(
+				f"{self.url}/{self.version}/{self.phone_id}",
+				headers={"authorization": f"Bearer {token}"},
+				params={"fields": "display_phone_number,verified_name"},
+			)
+		except Exception as e:
+			if silent:
+				frappe.log_error(title="WhatsApp number info fetch failed", message=str(e))
+				return
+			frappe.throw(_("Failed to fetch phone number info: {0}").format(str(e)))
+		self.display_phone_number = info.get("display_phone_number")
+		self.verified_name = info.get("verified_name")
+
+	@frappe.whitelist()
+	def fetch_number_info(self):
+		frappe.only_for("System Manager")
+		self.load_number_info()
+		self.db_set({"display_phone_number": self.display_phone_number, "verified_name": self.verified_name})
+		return {"display_phone_number": self.display_phone_number, "verified_name": self.verified_name}
