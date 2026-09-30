@@ -1,10 +1,29 @@
 # Copyright (c) 2025, Shridhar Patil and contributors
 # For license information, please see license.txt
 
+import hashlib
+
 import frappe
+import requests
 from frappe import _
 from frappe.integrations.utils import make_get_request, make_post_request
 from frappe.model.document import Document
+from frappe.utils import now_datetime
+
+PROFILE_FIELDS = (
+	"display_phone_number",
+	"verified_name",
+	"quality_rating",
+	"messaging_limit",
+	"about",
+	"address",
+	"description",
+	"email",
+	"vertical",
+	"websites",
+	"profile_image",
+	"profile_synced_on",
+)
 
 
 class WhatsAppAccount(Document):
@@ -128,7 +147,7 @@ class WhatsAppAccount(Document):
 			self.subscribe_app()
 
 		self.load_number_info(silent=True)
-		self.db_set({"display_phone_number": self.display_phone_number, "verified_name": self.verified_name})
+		self.db_set({field: self.get(field) for field in PROFILE_FIELDS})
 		return response
 
 	@frappe.whitelist()
@@ -137,15 +156,19 @@ class WhatsAppAccount(Document):
 		return self.get_password("two_step_pin", raise_exception=False)
 
 	def load_number_info(self, silent=False):
-		"""Read the number's display form and verified business name from the Graph API."""
+		"""Read the number and its business profile from the Graph API: display number,
+		verified name, quality and limit, plus the profile shown to customers (photo,
+		about, description, address, email, websites, category)."""
 		token = self.get_password("token", raise_exception=False)
 		if not (self.url and self.version and self.phone_id and token):
 			return
+		base = f"{self.url}/{self.version}/{self.phone_id}"
+		headers = {"authorization": f"Bearer {token}"}
 		try:
 			info = make_get_request(
-				f"{self.url}/{self.version}/{self.phone_id}",
-				headers={"authorization": f"Bearer {token}"},
-				params={"fields": "display_phone_number,verified_name"},
+				base,
+				headers=headers,
+				params={"fields": "display_phone_number,verified_name,quality_rating,messaging_limit_tier"},
 			)
 		except Exception as e:
 			if silent:
@@ -154,10 +177,63 @@ class WhatsAppAccount(Document):
 			frappe.throw(_("Failed to fetch phone number info: {0}").format(str(e)))
 		self.display_phone_number = info.get("display_phone_number")
 		self.verified_name = info.get("verified_name")
+		self.quality_rating = info.get("quality_rating")
+		self.messaging_limit = info.get("messaging_limit_tier")
+
+		try:
+			profile = make_get_request(
+				f"{base}/whatsapp_business_profile",
+				headers=headers,
+				params={"fields": "about,address,description,email,profile_picture_url,websites,vertical"},
+			)
+			profile = (profile.get("data") or [{}])[0]
+		except Exception as e:
+			frappe.log_error(title="WhatsApp business profile fetch failed", message=str(e))
+			profile = None
+		if profile is not None:
+			for field in ("about", "address", "description", "email", "vertical"):
+				self.set(field, profile.get(field))
+			self.websites = "\n".join(profile.get("websites") or [])
+			self.store_profile_picture(profile.get("profile_picture_url"))
+		self.profile_synced_on = now_datetime()
+
+	def store_profile_picture(self, url):
+		"""Keep a copy of the profile photo: Meta's URL is signed and expires."""
+		if not url:
+			self.profile_image = None
+			return
+		if self.is_new():
+			return
+		try:
+			response = requests.get(url, timeout=20)
+			response.raise_for_status()
+		except Exception as e:
+			frappe.log_error(title="WhatsApp profile photo download failed", message=str(e))
+			return
+		content = response.content
+		if self.profile_image:
+			current = frappe.db.get_value("File", {"file_url": self.profile_image}, "content_hash")
+			if current and current == hashlib.md5(content).hexdigest():
+				return
+		file = frappe.get_doc(
+			{
+				"doctype": "File",
+				"file_name": f"whatsapp-{self.phone_id}.jpg",
+				"attached_to_doctype": self.doctype,
+				"attached_to_name": self.name,
+				"attached_to_field": "profile_image",
+				"is_private": 0,
+				"content": content,
+			}
+		).insert(ignore_permissions=True)
+		self.profile_image = file.file_url
+
+	def save_number_info(self):
+		self.load_number_info()
+		self.db_set({field: self.get(field) for field in PROFILE_FIELDS})
 
 	@frappe.whitelist()
 	def fetch_number_info(self):
-		frappe.only_for("System Manager")
-		self.load_number_info()
-		self.db_set({"display_phone_number": self.display_phone_number, "verified_name": self.verified_name})
-		return {"display_phone_number": self.display_phone_number, "verified_name": self.verified_name}
+		self.check_permission("write")
+		self.save_number_info()
+		return {field: self.get(field) for field in PROFILE_FIELDS}

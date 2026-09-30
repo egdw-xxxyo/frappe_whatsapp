@@ -23,7 +23,21 @@
   "two_step_pin",
   "is_default_incoming",
   "is_default_outgoing",
-  "allow_auto_read_receipt"
+  "allow_auto_read_receipt",
+  "profile_section",
+  "profile_image",
+  "about",
+  "description",
+  "vertical",
+  "quality_rating",
+  "messaging_limit",
+  "column_break_profile",
+  "email",
+  "websites",
+  "address",
+  "profile_synced_on",
+  "notes_section",
+  "notes"
  ],
  "fields": [
   {
@@ -123,12 +137,93 @@
    "fieldname": "allow_auto_read_receipt",
    "fieldtype": "Check",
    "label": "Allow auto read receipt"
+  },
+  {
+   "fieldname": "profile_section",
+   "fieldtype": "Section Break",
+   "label": "Business Profile",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "profile_image",
+   "fieldtype": "Attach Image",
+   "label": "Profile Photo",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "about",
+   "fieldtype": "Data",
+   "label": "About",
+   "read_only": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description",
+   "read_only": 1
+  },
+  {
+   "fieldname": "vertical",
+   "fieldtype": "Data",
+   "label": "Category",
+   "read_only": 1
+  },
+  {
+   "fieldname": "quality_rating",
+   "fieldtype": "Data",
+   "label": "Quality Rating",
+   "read_only": 1
+  },
+  {
+   "fieldname": "messaging_limit",
+   "fieldtype": "Data",
+   "label": "Messaging Limit",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_profile",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "read_only": 1
+  },
+  {
+   "fieldname": "websites",
+   "fieldtype": "Small Text",
+   "label": "Websites",
+   "read_only": 1
+  },
+  {
+   "fieldname": "address",
+   "fieldtype": "Small Text",
+   "label": "Address",
+   "read_only": 1
+  },
+  {
+   "fieldname": "profile_synced_on",
+   "fieldtype": "Datetime",
+   "label": "Profile Synced On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-30 18:00:00.000000",
+ "modified": "2026-09-30 20:00:00.000000",
  "modified_by": "Administrator",
  "module": "Frappe Whatsapp",
  "name": "WhatsApp Account",
@@ -149,5 +244,6 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "image_field": "profile_image"
 }
