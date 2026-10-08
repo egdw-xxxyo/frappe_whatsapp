@@ -28,8 +28,10 @@ PROFILE_FIELDS = (
 
 class WhatsAppAccount(Document):
 	def validate(self):
+		if self.mock_mode and frappe.conf.get("instance_env") == "prod":
+			frappe.throw(_("Mock Mode cannot be enabled on production"))
 		self.validate_two_step_pin()
-		if self.phone_id and (self.has_value_changed("phone_id") or not self.display_phone_number):
+		if self.phone_id and not self.mock_mode and (self.has_value_changed("phone_id") or not self.display_phone_number):
 			self.load_number_info(silent=True)
 
 	def validate_two_step_pin(self):

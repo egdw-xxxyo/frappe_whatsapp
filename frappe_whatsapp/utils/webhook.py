@@ -7,7 +7,7 @@ from frappe import _
 from werkzeug.wrappers import Response
 import frappe.utils
 
-from frappe_whatsapp.utils import get_whatsapp_account
+from frappe_whatsapp.utils import get_whatsapp_account, mock
 
 
 @frappe.whitelist(allow_guest=True)
@@ -193,7 +193,8 @@ def post():
 					"product_catalog_json": json.dumps(order_data)
 				}).insert(ignore_permissions=True)
 			elif message_type in ["image", "audio", "video", "document", "sticker"]:
-				token = whatsapp_account.get_password("token")
+				is_mock = mock.is_mock(whatsapp_account)
+				token = "mock" if is_mock else whatsapp_account.get_password("token")
 				url = f"{whatsapp_account.url}/{whatsapp_account.version}/"
 
 				media_id = message[message_type]["id"]
@@ -201,7 +202,7 @@ def post():
 					'Authorization': 'Bearer ' + token
 
 				}
-				response = requests.get(f'{url}{media_id}/', headers=headers)
+				response = mock.get_media(media_id) if is_mock else requests.get(f'{url}{media_id}/', headers=headers)
 
 				if response.status_code == 200:
 					media_data = response.json()
@@ -209,7 +210,7 @@ def post():
 					mime_type = media_data.get("mime_type")
 					file_extension = mime_type.split('/')[1]
 
-					media_response = requests.get(media_url, headers=headers)
+					media_response = mock.get_media(media_url) if is_mock else requests.get(media_url, headers=headers)
 					if media_response.status_code == 200:
 
 						file_data = media_response.content

@@ -10,6 +10,7 @@
  "field_order": [
   "account_name",
   "status",
+  "mock_mode",
   "token",
   "url",
   "version",
@@ -119,6 +120,13 @@
    "in_standard_filter": 1,
    "label": "Status",
    "options": "Active\nInactive"
+  },
+  {
+   "default": "0",
+   "description": "Dev/test sites only: nothing is sent to Meta, messages are simulated and customers are played from the WhatsApp Mock page. Ignored on production.",
+   "fieldname": "mock_mode",
+   "fieldtype": "Check",
+   "label": "Mock Mode"
   },
   {
    "default": "0",

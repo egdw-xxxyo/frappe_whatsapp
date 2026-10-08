@@ -7,6 +7,7 @@ from frappe.model.document import Document
 from frappe.integrations.utils import make_post_request
 
 from frappe_whatsapp.utils import get_whatsapp_account, format_number
+from frappe_whatsapp.utils import mock
 
 class WhatsAppMessage(Document):
     def validate(self):
@@ -376,6 +377,8 @@ class WhatsAppMessage(Document):
             mime = "audio/ogg"
 
         account = frappe.get_doc("WhatsApp Account", self.whatsapp_account)
+        if mock.is_mock(account):
+            return mock.upload_media()
         token = account.get_password("token")
         response = requests.post(
             f"{account.url}/{account.version}/{account.phone_id}/media",
@@ -409,6 +412,9 @@ class WhatsAppMessage(Document):
             "WhatsApp Account",
             self.whatsapp_account,
         )
+        if mock.is_mock(whatsapp_account):
+            self.message_id = mock.graph_post(whatsapp_account, data)["messages"][0]["id"]
+            return
         token = whatsapp_account.get_password("token")
 
         headers = {
@@ -455,6 +461,11 @@ class WhatsAppMessage(Document):
             "WhatsApp Account",
             self.whatsapp_account,
         )
+
+        if mock.is_mock(settings):
+            self.status = "marked as read"
+            self.save()
+            return True
 
         token = settings.get_password("token")
 
